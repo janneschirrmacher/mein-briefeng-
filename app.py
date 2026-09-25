@@ -1,29 +1,41 @@
 import streamlit as st
 import feedparser
 from datetime import datetime
-from deep_translator import GoogleTranslator
+import re
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Global Briefing Hub", page_icon="📰", layout="wide")
 
-# Design im Economist-Stil
+# Custom CSS für das saubere Design im Economist-Stil
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
-    .stButton>button { background-color: #dc2626; color: white; border-radius: 6px; }
-    .stButton>button:hover { background-color: #b91c1c; color: white; }
+    h1, h2, h3 { color: #111827; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    .top-briefing {
+        background-color: #ffffff;
+        border-left: 5px solid #dc2626;
+        padding: 20px;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 25px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar für Einstellungen (z.B. Übersetzung)
-st.sidebar.markdown("### ⚙️ Einstellungen")
-translate_german = st.sidebar.checkbox("Inhalte automatisch ins Deutsche übersetzen", value=True)
-
-st.markdown("### 🔴 The Economist & Pro — Global Briefing Hub")
-st.write(f"Tagesaktuelles Briefing vom: {datetime.now().strftime('%A, %d. %B %Y')}")
+# Header
+st.markdown("## 🔴 The Economist & Pro — Global Briefing Hub")
+st.caption(f"Tagesaktuelles Briefing vom: {datetime.now().strftime('%A, %d. %B %Y')}")
 st.markdown("---")
 
-# Zuverlässige RSS-Quellen für die 6 Kategorien
+# Morgen-Briefing Sektion (wie in der Prototyp-Variante)
+st.markdown("""
+<div class="top-briefing">
+    <h3>⚡ Morgen-Briefing des Tages</h3>
+    <p>Willkommen zu Ihrem täglichen Intelligence-Briefing. Das Dashboard bündelt die wichtigsten Entwicklungen aus Wirtschaft, Politik und Technologie übersichtlich für Sie.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Die 6 Kategorien und ihre Feeds
 feeds = {
     "Wirtschaft & Finanzen": "https://www.ft.com/rss/home/uk",
     "Weltpolitik": "https://www.aljazeera.com/xml/rss/all.rss",
@@ -34,8 +46,6 @@ feeds = {
 }
 
 tabs = st.tabs(list(feeds.keys()))
-
-translator = GoogleTranslator(source='auto', target='de')
 
 for i, (category, url) in enumerate(feeds.items()):
     with tabs[i]:
@@ -48,25 +58,19 @@ for i, (category, url) in enumerate(feeds.items()):
             else:
                 for entry in feed.entries[:5]:
                     title = entry.title
-                    content_text = entry.summary if 'summary' in entry else (entry.description if 'description' in entry else "")
+                    summary_text = ""
+                    if 'summary' in entry:
+                        summary_text = entry.summary
+                    elif 'description' in entry:
+                        summary_text = entry.description
                     
-                    # Optional übersetzen
-                    if translate_german:
-                        try:
-                            title = translator.translate(title)
-                            if content_text:
-                                # Wir übersetzen die ersten Zeichen, um es schnell zu halten
-                                content_text = translator.translate(content_text[:500])
-                        except Exception:
-                            pass # Falls die Übersetzung fehlschlägt, Original anzeigen
+                    clean_summary = re.sub('<.*?>', '', summary_text)
                     
-                    with st.container():
-                        st.markdown(f"**{title}**")
-                        
-                        with st.expander("Vollständigen Text / Details anzeigen"):
-                            st.write(content_text)
-                            st.markdown(f"[Direkt zur Originalquelle öffnen]({entry.link})")
-                            
-                        st.markdown("---")
+                    # Schöne, gerahmte Karten-Optik für jeden Artikel
+                    with st.container(border=True):
+                        st.markdown(f"#### {title}")
+                        if clean_summary:
+                            st.markdown(clean_summary[:280] + "..." if len(clean_summary) > 280 else clean_summary)
+                        st.markdown(f"🔗 [Zum Originalartikel]({entry.link})")
         except Exception as e:
-            st.error(f"Fehler beim Laden: {e}")
+            st.error(f"Fehler beim Laden der Nachrichten: {e}")
